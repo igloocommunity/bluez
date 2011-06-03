@@ -1,0 +1,76 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides: bluetooth
+# Required-Start:    $local_fs $syslog $remote_fs dbus
+# Required-Stop:     $local_fs $syslog $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start bluetooth daemons
+### END INIT INFO
+#
+# bluez    Bluetooth subsystem starting and stopping
+#
+# originally from bluez's scripts/bluetooth.init
+#
+# Edd Dumbill <ejad@debian.org>
+# LSB 3.0 compilance and enhancements by Filippo Giunchedi <filippo@debian.org>
+#
+# Updated for bluez 4.7 by Mario Limonciello <mario_limonciello@dell.com>
+#
+# Note: older daemons like dund pand hidd are now shipped inside the
+# bluez-compat package
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DESC=bluetooth
+
+DAEMON=/usr/sbin/bluetoothd
+
+test -f /usr/sbin/bluetoothd || exit 0
+
+test -f /etc/default/rcS && . /etc/default/rcS
+
+. /lib/lsb/init-functions
+
+set -e
+
+case "$1" in
+  start)
+	#currently this init script exists only because of what appears to be
+	#an egg and chicken problem
+	#  bluetoothd normally starts up by udev rules.  it needs dbus to function,
+	#  but dbus doesn't start up until after udev finishes triggering
+	#
+	log_daemon_msg "Starting $DESC"
+
+	if [ ! -f /sbin/udevadm.upgrade ]; then
+		udevadm trigger --subsystem-match=bluetooth --action=add
+		log_progress_msg "bluetoothd"
+	fi
+
+	log_end_msg 0
+  ;;
+  stop)
+	log_daemon_msg "Stopping $DESC"
+	pkill -TERM bluetoothd || true
+	log_progress_msg "bluetoothd"
+	log_end_msg 0
+  ;;
+  restart|force-reload)
+	$0 stop
+	sleep 1
+	$0 start
+  ;;
+  status)
+	status_of_proc "$DAEMON" "$DESC" && exit 0 || exit $?
+  ;;
+  *)
+	N=/etc/init.d/bluetooth
+	# echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
+	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0
+
+# vim:noet

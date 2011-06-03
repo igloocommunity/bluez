@@ -1,0 +1,8 @@
+debian/source_bluez.py usr/share/apport/package-hooks
+debian/tmp/etc/bluetooth/main.conf
+debian/tmp/etc/bluetooth/rfcomm.conf
+debian/tmp/etc/dbus*/*
+debian/tmp/usr/sbin/*
+debian/tmp/usr/bin/*
+debian/tmp/usr/share/man/man*
+debian/tmp/lib/udev/*

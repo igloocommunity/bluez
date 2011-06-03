@@ -1,0 +1,66 @@
+#!/bin/sh -e
+
+# snippet from http://www.dpkg.org/dpkg/ConffileHandling
+
+# Prepare to move a conffile without triggering a dpkg question
+prep_mv_conffile() {
+    CONFFILE="$1"
+
+    if [ -e "$CONFFILE" ]; then
+        md5sum="`md5sum \"$CONFFILE\" | sed -e \"s/ .*//\"`"
+        old_md5sum="`dpkg-query -W -f='${Conffiles}' $PKGNAME | sed -n -e \"\\\\' $CONFFILE '{s/ obsolete$//;s/.* //p}\"`"
+        if [ "$md5sum" = "$old_md5sum" ]; then
+            rm -f "$CONFFILE"
+        fi
+    fi
+}
+
+# Remove a no-longer used conffile
+rm_conffile() {
+    PKGNAME="$1"
+    CONFFILE="$2"
+    if [ -e "$CONFFILE" ]; then
+        md5sum="`md5sum \"$CONFFILE\" | sed -e \"s/ .*//\"`"
+        old_md5sum="`dpkg-query -W -f='${Conffiles}' $PKGNAME | sed -n -e \"\\\\' $CONFFILE '{s/ obsolete$//;s/.* //p}\"`"
+        if [ "$md5sum" != "$old_md5sum" ]; then
+            echo "Obsolete conffile $CONFFILE has been modified by you."
+            echo "Saving as $CONFFILE.dpkg-bak ..."
+            mv -f "$CONFFILE" "$CONFFILE".dpkg-bak
+        else
+            echo "Removing obsolete conffile $CONFFILE ..."
+            rm -f "$CONFFILE"
+        fi
+    fi
+}
+
+case "$1" in
+install|upgrade)
+    if dpkg --compare-versions "$2" le "3.7-1"; then
+        prep_mv_conffile "/etc/dbus-1/system.d/bluez-hcid.conf"
+    fi
+
+    if dpkg --compare-versions "$2" le "3.30-1"; then
+        rm_conffile bluez-utils "/etc/bluetooth/network.service"
+        rm_conffile bluez-utils "/etc/bluetooth/serial.service"
+        rm_conffile bluez-utils "/etc/bluetooth/input.service"
+    fi
+    
+    # now that modprobe whines remove this old conffile, will be
+    # http://bugs.debian.org/523050
+    base="/etc/modprobe.d/bluez"
+    rm_conffile bluez "$base"
+    if [ -e "$base.dpkg-bak" ]; then
+        if [ -e "$base.conf" ]; then
+            echo "$base.conf exists, not touching"
+        else
+            echo "Moving $base.dpkg-bak to $base.conf"
+            mv -f "$base.dpkg-bak" "$base.conf"
+        fi
+    fi
+
+    if dpkg --compare-versions "$2" le "4.45-1"; then
+        rm_conffile bluez "/etc/default/bluetooth"
+    fi
+esac
+
+#DEBHELPER#

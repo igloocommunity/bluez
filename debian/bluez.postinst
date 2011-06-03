@@ -1,0 +1,53 @@
+#!/bin/sh
+# snippet from http://www.dpkg.org/dpkg/ConffileHandling
+
+# Move a conffile without triggering a dpkg question
+mv_conffile() {
+    OLDCONFFILE="$1"
+    NEWCONFFILE="$2"
+
+    if [ -e "$OLDCONFFILE" ]; then
+        echo "Preserving user changes to $NEWCONFFILE ..."
+        mv -f "$NEWCONFFILE" "$NEWCONFFILE".dpkg-new
+        mv -f "$OLDCONFFILE" "$NEWCONFFILE"
+    fi
+}
+
+set -e
+case "$1" in
+    configure)
+        if [ -e /etc/init.d/bluez-utils ]; then
+            update-rc.d -f bluez-utils remove
+            # maybe a (medium/low debconf?) notice is best suited here
+        fi
+
+        # use MAKEDEV instead of the original bluez script below as per policy 10.6
+        if [ -x /dev/MAKEDEV ]; then
+            echo "Creating device nodes ..."
+            cd /dev && ./MAKEDEV bluetooth 1>/dev/null 2>/dev/null
+        fi
+
+        # create bluetooth group if not already present
+        if ! getent group bluetooth > /dev/null; then
+            addgroup --quiet --system bluetooth
+        fi
+
+        # reload dbus config file
+        if [ -x /etc/init.d/dbus ]; then
+            invoke-rc.d dbus force-reload || true
+        fi
+
+        #reload udev rules
+        if [ -x /etc/init.d/udev ]; then
+            invoke-rc.d udev reload || true
+        fi
+
+        ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 0
+    ;;
+esac
+
+#DEBHELPER#
